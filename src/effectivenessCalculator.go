@@ -379,24 +379,24 @@ var chart = map[string]map[string]float64{
 }
 
 type attacker struct {
-	pokemonType    []string
-	damageReceived []float64
+	PokemonType    []string
+	DamageReceived []float64
 }
 
 type attack struct {
-	attackType          string
-	attackEffectiveness float64
+	AttackType          string
+	AttackEffectiveness float64
 }
 
 type optimalAttacker struct {
-	pokemonType         []string
-	attackType          string
-	attackEffectiveness float64
-	damageReceived      []float64
-	difference          float64
+	PokemonType         []string
+	AttackType          string
+	AttackEffectiveness float64
+	DamageReceived      []float64
+	Difference          float64
 }
 
-func getEffectiveness(defenderType []string) ([]attack, []attacker, [][]optimalAttacker) {
+func getEffectiveness(defenderType []string) ([]attack, [][]optimalAttacker) {
 
 	attacks := []attack{}
 
@@ -407,13 +407,14 @@ func getEffectiveness(defenderType []string) ([]attack, []attacker, [][]optimalA
 			attackEffectiveness *= chart[element[0]][defender]
 		}
 		attacks = append(attacks, attack{
-			attackType:          element[0],
-			attackEffectiveness: round2(attackEffectiveness),
+			AttackType:          element[0],
+			AttackEffectiveness: round2(attackEffectiveness),
 		})
 	}
+
 	// sort the results by effectiveness
 	sort.Slice(attacks, func(i, j int) bool {
-		return attacks[i].attackEffectiveness > attacks[j].attackEffectiveness
+		return attacks[i].AttackEffectiveness > attacks[j].AttackEffectiveness
 	})
 
 	// calculate the effectiveness of defender's counter attacks for every possible attacker type
@@ -429,19 +430,19 @@ func getEffectiveness(defenderType []string) ([]attack, []attacker, [][]optimalA
 			}
 		}
 		attackers = append(attackers, attacker{
-			pokemonType:    attackerType,
-			damageReceived: damageReceived,
+			PokemonType:    attackerType,
+			DamageReceived: damageReceived,
 		})
 	}
 	// sort the results ascending by the sum of the damage received
 	sort.Slice(attackers, func(i, j int) bool {
-		return sumSlice(attackers[i].damageReceived) < sumSlice(attackers[j].damageReceived)
+		return sumSlice(attackers[i].DamageReceived) < sumSlice(attackers[j].DamageReceived)
 	})
 
 	// get attacks with effectiveness higher than 1.0
 	var effectiveAttacks []attack
 	for _, attack := range attacks {
-		if attack.attackEffectiveness > 1.0 {
+		if attack.AttackEffectiveness > 1.0 {
 			effectiveAttacks = append(effectiveAttacks, attack)
 		} else {
 			break
@@ -452,9 +453,9 @@ func getEffectiveness(defenderType []string) ([]attack, []attacker, [][]optimalA
 	var matchingAttackers []attacker
 	for _, attacker := range attackers {
 		for _, attack := range effectiveAttacks {
-			if sumSlice(attacker.damageReceived) < 2.0 {
-				if slices.Contains(attacker.pokemonType, attack.attackType) {
-					if len(matchingAttackers) == 0 || slices.Compare(attacker.pokemonType, matchingAttackers[len(matchingAttackers)-1].pokemonType) != 0 {
+			if sumSlice(attacker.DamageReceived) < 2.0 {
+				if slices.Contains(attacker.PokemonType, attack.AttackType) {
+					if len(matchingAttackers) == 0 || slices.Compare(attacker.PokemonType, matchingAttackers[len(matchingAttackers)-1].PokemonType) != 0 {
 						matchingAttackers = append(matchingAttackers, attacker)
 					}
 				}
@@ -467,15 +468,15 @@ func getEffectiveness(defenderType []string) ([]attack, []attacker, [][]optimalA
 	// match the most effective attack type with the most effective attacker type
 	optimalAttackers := []optimalAttacker{}
 	for _, attacker := range matchingAttackers {
-		for _, attackerAttackType := range attacker.pokemonType {
+		for _, attackerAttackType := range attacker.PokemonType {
 			for _, attack := range effectiveAttacks {
-				if attack.attackType == attackerAttackType {
+				if attack.AttackType == attackerAttackType {
 					optimalAttackers = append(optimalAttackers, optimalAttacker{
-						pokemonType:         attacker.pokemonType,
-						attackType:          attack.attackType,
-						attackEffectiveness: attack.attackEffectiveness,
-						damageReceived:      attacker.damageReceived,
-						difference:          round2(attack.attackEffectiveness - sumSlice(attacker.damageReceived)),
+						PokemonType:         attacker.PokemonType,
+						AttackType:          attack.AttackType,
+						AttackEffectiveness: attack.AttackEffectiveness,
+						DamageReceived:      attacker.DamageReceived,
+						Difference:          round2(attack.AttackEffectiveness - sumSlice(attacker.DamageReceived)),
 					})
 				}
 			}
@@ -484,14 +485,14 @@ func getEffectiveness(defenderType []string) ([]attack, []attacker, [][]optimalA
 
 	// sort the results by the attack effectiveness - sum of the damage received
 	sort.Slice(optimalAttackers, func(i, j int) bool {
-		return optimalAttackers[i].attackEffectiveness-sumSlice(optimalAttackers[i].damageReceived) > optimalAttackers[j].attackEffectiveness-sumSlice(optimalAttackers[j].damageReceived)
+		return optimalAttackers[i].AttackEffectiveness-sumSlice(optimalAttackers[i].DamageReceived) > optimalAttackers[j].AttackEffectiveness-sumSlice(optimalAttackers[j].DamageReceived)
 	})
 
 	// get pokemon with best attack effectiveness - sum of the damage received
 	groupedOptimalAttackers := [][]optimalAttacker{}
 	counter := 0
 	for _, attacker := range optimalAttackers {
-		if len(groupedOptimalAttackers) == 0 || groupedOptimalAttackers[len(groupedOptimalAttackers)-1][0].difference == attacker.difference {
+		if len(groupedOptimalAttackers) == 0 || groupedOptimalAttackers[len(groupedOptimalAttackers)-1][0].Difference == attacker.Difference {
 			if len(groupedOptimalAttackers) <= counter {
 				groupedOptimalAttackers = append(groupedOptimalAttackers, []optimalAttacker{})
 			}
@@ -505,5 +506,5 @@ func getEffectiveness(defenderType []string) ([]attack, []attacker, [][]optimalA
 		}
 	}
 
-	return attacks, attackers, groupedOptimalAttackers
+	return effectiveAttacks, groupedOptimalAttackers
 }
