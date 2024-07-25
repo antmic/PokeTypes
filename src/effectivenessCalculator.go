@@ -432,21 +432,7 @@ func getEffectiveness(defenderType []string) ([]attack, [][]optimalAttacker) {
 	for _, attackerType := range attackerTypes {
 		var damageReceived float64 = 0
 
-		// for _, defType := range defenderType {
-		// 	if len(attackerType) == 1 {
-		// 		damageReceived = append(damageReceived, round2(chart[defType][attackerType[0]]))
-		// 	} else {
-		// 		damageReceived = append(damageReceived, round2(chart[defType][attackerType[0]]*chart[defType][attackerType[1]]))
-		// 	}
-		// }
-
 		for _, defType := range defenderType {
-			// var index int
-			// if len(defenderType) == 1 {
-			// 	index = 0
-			// } else {
-			// 	index = i
-			// }
 
 			if len(attackerType) == 1 {
 				if damageReceived == 0 || damageReceived < round2(chart[defType][attackerType[0]]) {
@@ -524,6 +510,12 @@ func getEffectiveness(defenderType []string) ([]attack, [][]optimalAttacker) {
 			}
 			groupedOptimalAttackers[counter] = append(groupedOptimalAttackers[counter], attacker)
 		}
+	}
+
+	for _, group := range groupedOptimalAttackers {
+		sort.Slice(group, func(i, j int) bool {
+			return len(group[i].PokemonType) < len(group[j].PokemonType)
+		})
 	}
 
 	if len(groupedOptimalAttackers) > 3 {
