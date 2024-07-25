@@ -380,7 +380,7 @@ var chart = map[string]map[string]float64{
 
 type attacker struct {
 	PokemonType    []string
-	DamageReceived []float64
+	DamageReceived float64
 }
 
 type attack struct {
@@ -392,7 +392,7 @@ type optimalAttacker struct {
 	PokemonType         []string
 	AttackType          string
 	AttackEffectiveness float64
-	DamageReceived      []float64
+	DamageReceived      float64
 	Difference          float64
 }
 
@@ -417,28 +417,6 @@ func getEffectiveness(defenderType []string) ([]attack, [][]optimalAttacker) {
 		return attacks[i].AttackEffectiveness > attacks[j].AttackEffectiveness
 	})
 
-	// calculate the effectiveness of defender's counter attacks for every possible attacker type
-	attackers := []attacker{}
-	for _, attackerType := range attackerTypes {
-		var damageReceived []float64
-
-		for _, defType := range defenderType {
-			if len(attackerType) == 1 {
-				damageReceived = append(damageReceived, round2(chart[defType][attackerType[0]]))
-			} else {
-				damageReceived = append(damageReceived, round2(chart[defType][attackerType[0]]*chart[defType][attackerType[1]]))
-			}
-		}
-		attackers = append(attackers, attacker{
-			PokemonType:    attackerType,
-			DamageReceived: damageReceived,
-		})
-	}
-	// sort the results ascending by the sum of the damage received
-	sort.Slice(attackers, func(i, j int) bool {
-		return sumSlice(attackers[i].DamageReceived) < sumSlice(attackers[j].DamageReceived)
-	})
-
 	// get attacks with effectiveness higher than 1.0
 	var effectiveAttacks []attack
 	for _, attack := range attacks {
@@ -449,11 +427,53 @@ func getEffectiveness(defenderType []string) ([]attack, [][]optimalAttacker) {
 		}
 	}
 
+	// calculate the effectiveness of defender's counter attacks for every possible attacker type
+	attackers := []attacker{}
+	for _, attackerType := range attackerTypes {
+		var damageReceived float64 = 0
+
+		// for _, defType := range defenderType {
+		// 	if len(attackerType) == 1 {
+		// 		damageReceived = append(damageReceived, round2(chart[defType][attackerType[0]]))
+		// 	} else {
+		// 		damageReceived = append(damageReceived, round2(chart[defType][attackerType[0]]*chart[defType][attackerType[1]]))
+		// 	}
+		// }
+
+		for _, defType := range defenderType {
+			// var index int
+			// if len(defenderType) == 1 {
+			// 	index = 0
+			// } else {
+			// 	index = i
+			// }
+
+			if len(attackerType) == 1 {
+				if damageReceived == 0 || damageReceived < round2(chart[defType][attackerType[0]]) {
+					damageReceived = round2(chart[defType][attackerType[0]])
+				}
+			} else {
+				if damageReceived == 0 || damageReceived < round2(maxSlice([]float64{chart[defType][attackerType[0]], chart[defType][attackerType[1]]})) {
+					damageReceived = round2(sumSlice([]float64{chart[defType][attackerType[0]], chart[defType][attackerType[1]]}) / 2)
+				}
+			}
+		}
+
+		attackers = append(attackers, attacker{
+			PokemonType:    attackerType,
+			DamageReceived: damageReceived,
+		})
+	}
+	// sort the results ascending by the sum of the damage received
+	sort.Slice(attackers, func(i, j int) bool {
+		return attackers[i].DamageReceived < attackers[j].DamageReceived
+	})
+
 	// get unique attackers with type that includes the most effective attack type and sum is less than 2.0
 	var matchingAttackers []attacker
 	for _, attacker := range attackers {
 		for _, attack := range effectiveAttacks {
-			if sumSlice(attacker.DamageReceived) < 2.0 {
+			if attacker.DamageReceived <= 1.0 {
 				if slices.Contains(attacker.PokemonType, attack.AttackType) {
 					if len(matchingAttackers) == 0 || slices.Compare(attacker.PokemonType, matchingAttackers[len(matchingAttackers)-1].PokemonType) != 0 {
 						matchingAttackers = append(matchingAttackers, attacker)
@@ -476,19 +496,19 @@ func getEffectiveness(defenderType []string) ([]attack, [][]optimalAttacker) {
 						AttackType:          attack.AttackType,
 						AttackEffectiveness: attack.AttackEffectiveness,
 						DamageReceived:      attacker.DamageReceived,
-						Difference:          round2(attack.AttackEffectiveness - sumSlice(attacker.DamageReceived)),
+						Difference:          round2(attack.AttackEffectiveness - attacker.DamageReceived),
 					})
 				}
 			}
 		}
 	}
 
-	// sort the results by the attack effectiveness - sum of the damage received
+	// sort the results by the attack effectiveness - sum of the damage received difference
 	sort.Slice(optimalAttackers, func(i, j int) bool {
-		return optimalAttackers[i].AttackEffectiveness-sumSlice(optimalAttackers[i].DamageReceived) > optimalAttackers[j].AttackEffectiveness-sumSlice(optimalAttackers[j].DamageReceived)
+		return optimalAttackers[i].Difference > optimalAttackers[j].Difference
 	})
 
-	// get pokemon with best attack effectiveness - sum of the damage received
+	// get pokemon with best attack effectiveness - sum of the damage received difference
 	groupedOptimalAttackers := [][]optimalAttacker{}
 	counter := 0
 	for _, attacker := range optimalAttackers {
@@ -506,5 +526,8 @@ func getEffectiveness(defenderType []string) ([]attack, [][]optimalAttacker) {
 		}
 	}
 
+	if len(groupedOptimalAttackers) > 3 {
+		return effectiveAttacks, groupedOptimalAttackers[:3]
+	}
 	return effectiveAttacks, groupedOptimalAttackers
 }
